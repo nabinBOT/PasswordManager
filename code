@@ -1,0 +1,160 @@
+import tkinter as tk
+from tkinter import messagebox
+import os
+
+MAX_LENGTH = 50
+MAX_ACCOUNTS = 10
+
+class Account:
+    def __init__(self, id, username, password):
+        self.id = id
+        self.username = username
+        self.password = password
+
+class PasswordManager:
+    def __init__(self, root):
+        self.root = root
+        self.root.title("Password Manager")
+        self.root.geometry("400x300")
+        self.accounts = []
+        self.count = 0
+        self.file_path = os.path.join(os.path.expanduser("~"), "Desktop", "passwords.txt")
+
+        self.load_from_file()
+
+        self.create_widgets()
+
+    def create_widgets(self):
+        self.frame = tk.Frame(self.root, padx=10, pady=10, bg="#2E2E2E")
+        self.frame.pack(expand=True, fill=tk.BOTH)
+
+        self.label_username = tk.Label(self.frame, text="Username:", bg="#2E2E2E", fg="#FFFFFF")
+        self.label_username.grid(row=0, column=0, sticky=tk.W, padx=5, pady=5)
+        self.entry_username = tk.Entry(self.frame, width=40, bg="#1E1E1E", fg="#FFFFFF", insertbackground='white')
+        self.entry_username.grid(row=0, column=1, padx=5, pady=5)
+
+        self.label_password = tk.Label(self.frame, text="Password:", bg="#2E2E2E", fg="#FFFFFF")
+        self.label_password.grid(row=1, column=0, sticky=tk.W, padx=5, pady=5)
+        self.entry_password = tk.Entry(self.frame, show="*", width=40, bg="#1E1E1E", fg="#FFFFFF", insertbackground='white')
+        self.entry_password.grid(row=1, column=1, padx=5, pady=5)
+
+        self.button_add = tk.Button(self.frame, text="Add Account", command=self.add_account, bg="white", fg="black", relief=tk.RAISED)
+        self.button_add.grid(row=2, column=0, columnspan=2, pady=10, sticky=tk.EW)
+
+        self.button_display = tk.Button(self.frame, text="Display Accounts", command=self.display_accounts, bg="white", fg="black", relief=tk.RAISED)
+        self.button_display.grid(row=3, column=0, columnspan=2, pady=10, sticky=tk.EW)
+
+        self.button_modify = tk.Button(self.frame, text="Modify Account", command=self.modify_account, bg="white", fg="black", relief=tk.RAISED)
+        self.button_modify.grid(row=4, column=0, columnspan=2, pady=10, sticky=tk.EW)
+
+        self.button_delete = tk.Button(self.frame, text="Delete Account", command=self.delete_account, bg="white", fg="black", relief=tk.RAISED)
+        self.button_delete.grid(row=5, column=0, columnspan=2, pady=10, sticky=tk.EW)
+
+    def is_password_strong(self, password):
+        if len(password) >= 8 and any(c.isupper() for c in password) and any(c.isdigit() for c in password):
+            return True
+        return False
+
+    def add_account(self):
+        if self.count >= MAX_ACCOUNTS:
+            messagebox.showerror("Error", "Maximum number of accounts reached.")
+            return
+
+        username = self.entry_username.get().strip()
+        password = self.entry_password.get().strip()
+
+        if not username or not password:
+            messagebox.showerror("Error", "Username and Password cannot be empty.")
+            return
+
+        if not self.is_password_strong(password):
+            messagebox.showwarning("Warning", "Password is not strong.")
+
+        self.accounts.append(Account(self.count + 1, username, password))
+        self.count += 1
+        self.save_to_file()
+        messagebox.showinfo("Success", "Account added successfully!")
+        self.clear_entries()
+
+    def display_accounts(self):
+        if not self.accounts:
+            messagebox.showinfo("Information", "No accounts found.")
+            return
+
+        accounts_str = "\n".join([f"ID: {acc.id}, Username: {acc.username}, Password: {acc.password}" for acc in self.accounts])
+        messagebox.showinfo("Accounts", accounts_str)
+
+    def modify_account(self):
+        if not self.accounts:
+            messagebox.showinfo("Information", "No accounts to modify.")
+            return
+
+        account_id = self.get_account_id()
+        if account_id is None:
+            return
+
+        account = next((acc for acc in self.accounts if acc.id == account_id), None)
+        if account:
+            username = self.entry_username.get().strip()
+            password = self.entry_password.get().strip()
+
+            if username:
+                account.username = username
+            if password:
+                account.password = password
+
+            self.save_to_file()
+            messagebox.showinfo("Success", "Account modified successfully!")
+        else:
+            messagebox.showerror("Error", "Account not found.")
+
+    def delete_account(self):
+        if not self.accounts:
+            messagebox.showinfo("Information", "No accounts to delete.")
+            return
+
+        account_id = self.get_account_id()
+        if account_id is None:
+            return
+
+        self.accounts = [acc for acc in self.accounts if acc.id != account_id]
+        self.count -= 1
+        self.save_to_file()
+        messagebox.showinfo("Success", "Account deleted successfully!")
+
+    def get_account_id(self):
+        try:
+            account_id = int(self.entry_username.get().strip())
+            return account_id
+        except ValueError:
+            messagebox.showerror("Error", "Invalid account ID.")
+            return None
+
+    def save_to_file(self):
+        with open(self.file_path, "w") as file:
+            for acc in self.accounts:
+                file.write(f"ID: {acc.id}, Username: {acc.username}, Password: {acc.password}\n")
+
+    def load_from_file(self):
+        if not os.path.exists(self.file_path):
+            return
+
+        self.accounts.clear()
+        with open(self.file_path, "r") as file:
+            for line in file:
+                parts = line.strip().split(", ")
+                if len(parts) == 3:
+                    id_str = parts[0].split(": ")[1]
+                    username = parts[1].split(": ")[1]
+                    password = parts[2].split(": ")[1]
+                    self.accounts.append(Account(int(id_str), username, password))
+        self.count = len(self.accounts)
+
+    def clear_entries(self):
+        self.entry_username.delete(0, tk.END)
+        self.entry_password.delete(0, tk.END)
+
+if __name__ == "__main__":
+    root = tk.Tk()
+    app = PasswordManager(root)
+    root.mainloop()
